@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200">
+  <defs>
+    <linearGradient id="flame" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B1A"/>
+      <stop offset="55%" stop-color="#FF9A3C"/>
+      <stop offset="100%" stop-color="#FFC857"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2B2F36"/>
+      <stop offset="100%" stop-color="#14161A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark: hexagon "anvil chip" containing a circuit-flame F -->
+  <g transform="translate(20,20)">
+    <polygon points="80,0 152,40 152,120 80,160 8,120 8,40"
+             fill="url(#steel)" stroke="#3A3F47" stroke-width="2"/>
+
+    <!-- circuit traces -->
+    <g stroke="#FF9A3C" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.55">
+      <path d="M8,40 L28,40"/>
+      <path d="M152,40 L132,40"/>
+      <path d="M8,120 L28,120"/>
+      <path d="M152,120 L132,120"/>
+      <circle cx="28" cy="40" r="3.5" fill="#FF9A3C" stroke="none"/>
+      <circle cx="132" cy="40" r="3.5" fill="#FF9A3C" stroke="none"/>
+      <circle cx="28" cy="120" r="3.5" fill="#FF9A3C" stroke="none"/>
+      <circle cx="132" cy="120" r="3.5" fill="#FF9A3C" stroke="none"/>
+    </g>
+
+    <!-- Stylized "F" built like a forged blade / flame -->
+    <path d="M56,34
+             L56,126
+             L76,126
+             L76,90
+             L108,90
+             L108,72
+             L76,72
+             L76,52
+             L118,52
+             L118,34
+             Z"
+          fill="url(#flame)"/>
+
+    <!-- small spark accent -->
+    <circle cx="118" cy="34" r="6" fill="#FFC857"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(210,0)" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="0" y="118" font-size="76" font-weight="700" fill="#14161A">Forge<tspan fill="url(#flame)">AI</tspan></text>
+    <text x="2" y="148" font-size="18" letter-spacing="4" fill="#7A828C" font-weight="500">FORGED BY MACHINE INTELLIGENCE</text>
+  </g>
+</svg>
