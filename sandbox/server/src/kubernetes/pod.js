@@ -18,13 +18,15 @@ export async function createPod(sandboxId, projectId) {
                      name: 'sandbox-container',
                      ports: [{ containerPort: 5173}],
                      resources: {
-                        limits: {
-                        cpu : "500m",
-                        memory : "1Gi"},
-                     requests: {
-                        cpu : "250m",
-                        memory : "500Mi" }
-                  }
+                   requests: {
+                     cpu: "250m",
+                    memory: "500Mi"
+                             },
+                     limits: {
+                   cpu: "500m",
+                  memory: "1Gi"
+                             }
+                             }
                 }
             ]
         }
