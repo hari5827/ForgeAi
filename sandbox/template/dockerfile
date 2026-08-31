@@ -1,12 +1,12 @@
-FROM node:20-alpine
+FROM node:22-alpine  
 
-WORKDIR /workspace
+WORKDIR /app
 
-COPY vite-project/package*.json ./
+COPY frontend/package*.json ./
 
 RUN npm install
 
-COPY vite-project/ .
+COPY frontend/ .
 
 EXPOSE 5173
 
