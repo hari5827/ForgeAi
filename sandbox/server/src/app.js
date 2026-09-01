@@ -6,6 +6,7 @@ import { cleanupExpiredSandboxes } from "./kubernetes/cleanup.js";
 import { createPod } from "./kubernetes/pod.js";
 import { deleteSandbox } from "./kubernetes/delete.js";
 import { createService } from "./kubernetes/service.js";
+import { executeAction } from "./service/sandboxExecutor.js";
 
 const app = express();
 
@@ -92,6 +93,43 @@ app.delete("/api/sandbox/:sandboxId", async (req, res) => {
     }
 });
 
+app.post("/api/sandbox/:sandboxId/execute", async (req, res) => {
+    const { sandboxId } = req.params;
+    const { actions } = req.body;
+
+    if (!Array.isArray(actions)) {
+        return res.status(400).json({
+            message: "actions must be an array"
+        });
+    }
+
+    try {
+        const results = [];
+
+        for (const action of actions) {
+            const result = await executeAction(
+                sandboxId,
+                action
+            );
+
+            results.push(result);
+        }
+
+        res.json({
+            sandboxId,
+            message: "Actions executed successfully",
+            results
+        });
+
+    } catch (error) {
+        console.error("SANDBOX EXECUTION FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to execute actions",
+            error: error.message
+        });
+    }
+});
 setInterval(() => {
     cleanupExpiredSandboxes().catch((error) => {
         console.error("CLEANUP FAILED:", error.message);
