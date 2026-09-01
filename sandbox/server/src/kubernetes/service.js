@@ -1,11 +1,14 @@
 import { k8sCoreV1Api } from "./config.js";
 
 export async function createService(sandboxId) {
+    const expiresAt = Date.now() + 30 * 60 * 1000;
+
     const serviceManifest = {
         metadata: {
             name: `sandbox-service-${sandboxId}`,
             labels: {
-                sandboxId
+                sandboxId,
+                expiresAt: String(expiresAt)
             }
         },
 

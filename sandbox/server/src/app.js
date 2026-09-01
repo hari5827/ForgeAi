@@ -1,8 +1,10 @@
 import express from "express";
 import morgan from "morgan";
 import { v7 as uuid } from "uuid";
-
+import { k8sCoreV1Api } from "./kubernetes/config.js";
+import { cleanupExpiredSandboxes } from "./kubernetes/cleanup.js";
 import { createPod } from "./kubernetes/pod.js";
+import { deleteSandbox } from "./kubernetes/delete.js";
 import { createService } from "./kubernetes/service.js";
 
 const app = express();
@@ -38,5 +40,62 @@ app.post("/api/sandbox/start", async (req, res) => {
         });
     }
 });
+
+app.get("/api/sandbox/:sandboxId/status", async (req, res) => {
+    const { sandboxId } = req.params;
+
+    try {
+        const pod = await k8sCoreV1Api.readNamespacedPod({
+            name: `sandbox-pod-${sandboxId}`,
+            namespace: "default"
+        });
+
+        const phase = pod.status?.phase || "Unknown";
+
+        res.json({
+            sandboxId,
+            status: phase.toLowerCase()
+        });
+    } catch (error) {
+        if (error.response?.statusCode === 404) {
+            return res.status(404).json({
+                sandboxId,
+                status: "not_found"
+            });
+        }
+
+        console.error("STATUS CHECK FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to check sandbox status"
+        });
+    }
+});
+
+app.delete("/api/sandbox/:sandboxId", async (req, res) => {
+    const { sandboxId } = req.params;
+
+    try {
+        await deleteSandbox(sandboxId);
+
+        res.json({
+            message: "Sandbox deleted successfully",
+            sandboxId
+        });
+    } catch (error) {
+        console.error("SANDBOX DELETE FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to delete sandbox",
+            error: error.message
+        });
+    }
+});
+
+setInterval(() => {
+    cleanupExpiredSandboxes().catch((error) => {
+        console.error("CLEANUP FAILED:", error.message);
+    });
+}, 60 * 1000);
 
 export default app;
