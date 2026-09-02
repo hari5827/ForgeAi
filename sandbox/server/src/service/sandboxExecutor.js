@@ -8,8 +8,7 @@ function validatePath(filePath) {
         throw new Error("Invalid file path");
     }
 }
-
-async function execCommand(podName, command) {
+async function execScript(podName, script, args = [], input) {
     try {
         const { stdout, stderr } = await execFileAsync(
             "kubectl",
@@ -18,20 +17,40 @@ async function execCommand(podName, command) {
                 podName,
                 "-c",
                 "sandbox",
+                ...(input !== undefined ? ["-i"] : []),
                 "--",
                 "sh",
                 "-c",
-                command
+                script,
+                "--", // marks end of options for sh; remaining args become $1, $2, ...
+                ...args
             ],
             {
-                maxBuffer: 10 * 1024 * 1024
+                maxBuffer: 10 * 1024 * 1024,
+                input
             }
         );
 
-        return {
-            stdout,
-            stderr
-        };
+        return { stdout, stderr };
+    } catch (error) {
+        throw new Error(
+            error.stderr?.toString() ||
+            error.stdout?.toString() ||
+            error.message
+        );
+    }
+}
+
+
+async function execCommand(podName, command) {
+    try {
+        const { stdout, stderr } = await execFileAsync(
+            "kubectl",
+            ["exec", podName, "-c", "sandbox", "--", "sh", "-c", command],
+            { maxBuffer: 10 * 1024 * 1024 }
+        );
+
+        return { stdout, stderr };
     } catch (error) {
         throw new Error(
             error.stderr?.toString() ||
@@ -53,14 +72,11 @@ export async function executeAction(sandboxId, action) {
             if (typeof action.content !== "string") {
                 throw new Error("File content is required");
             }
-
-            const encoded = Buffer
-                .from(action.content)
-                .toString("base64");
-
-            await execCommand(
+            await execScript(
                 podName,
-                `mkdir -p "$(dirname '${action.path}')" && echo '${encoded}' | base64 -d > '${action.path}'`
+                'mkdir -p "$(dirname "$1")" && base64 -d > "$1"',
+                [action.path],
+                Buffer.from(action.content).toString("base64")
             );
 
             return {
@@ -73,9 +89,10 @@ export async function executeAction(sandboxId, action) {
         case "delete_file": {
             validatePath(action.path);
 
-            await execCommand(
+            await execScript(
                 podName,
-                `rm -f '${action.path}'`
+                'rm -f "$1"',
+                [action.path]
             );
 
             return {
@@ -90,10 +107,7 @@ export async function executeAction(sandboxId, action) {
                 throw new Error("Command is required");
             }
 
-            const result = await execCommand(
-                podName,
-                action.command
-            );
+            const result = await execCommand(podName, action.command);
 
             return {
                 action: "run_command",
@@ -104,8 +118,6 @@ export async function executeAction(sandboxId, action) {
         }
 
         default:
-            throw new Error(
-                `Unsupported action: ${action.action}`
-            );
+            throw new Error(`Unsupported action: ${action.action}`);
     }
 }
