@@ -122,7 +122,7 @@ app.post("/api/sandbox/:sandboxId/execute", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("SANDBOX EXECUTION FAILED:", error);
+        console.error("SANDBOX EXECUTION FAILED:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
 
         res.status(500).json({
             message: "Failed to execute actions",

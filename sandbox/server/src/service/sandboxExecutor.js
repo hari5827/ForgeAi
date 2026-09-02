@@ -1,5 +1,7 @@
-import { Writable } from "stream";
-import { k8sExec } from "../kubernetes/config.js";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
 
 function validatePath(filePath) {
     if (!filePath || filePath.startsWith("/") || filePath.includes("..")) {
@@ -7,50 +9,36 @@ function validatePath(filePath) {
     }
 }
 
-function execCommand(podName, command) {
-    return new Promise((resolve, reject) => {
-        let stdout = "";
-        let stderr = "";
-
-        const stdoutStream = new Writable({
-            write(chunk, encoding, callback) {
-                stdout += chunk.toString();
-                callback();
-            }
-        });
-
-        const stderrStream = new Writable({
-            write(chunk, encoding, callback) {
-                stderr += chunk.toString();
-                callback();
-            }
-        });
-
-        k8sExec.exec(
-            "default",
-            podName,
-            "sandbox",
-            ["sh", "-c", command],
-            stdoutStream,
-            stderrStream,
-            null,
-            false,
-            (status) => {
-                if (status?.status === "Success") {
-                    resolve({
-                        stdout,
-                        stderr
-                    });
-                } else {
-                    reject(
-                        new Error(
-                            stderr || `Command failed: ${command}`
-                        )
-                    );
-                }
+async function execCommand(podName, command) {
+    try {
+        const { stdout, stderr } = await execFileAsync(
+            "kubectl",
+            [
+                "exec",
+                podName,
+                "-c",
+                "sandbox",
+                "--",
+                "sh",
+                "-c",
+                command
+            ],
+            {
+                maxBuffer: 10 * 1024 * 1024
             }
         );
-    });
+
+        return {
+            stdout,
+            stderr
+        };
+    } catch (error) {
+        throw new Error(
+            error.stderr?.toString() ||
+            error.stdout?.toString() ||
+            error.message
+        );
+    }
 }
 
 export async function executeAction(sandboxId, action) {
