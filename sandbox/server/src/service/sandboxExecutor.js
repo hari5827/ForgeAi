@@ -1,3 +1,4 @@
+import { Writable } from "stream";
 import { k8sExec } from "../kubernetes/config.js";
 
 function validatePath(filePath) {
@@ -11,17 +12,19 @@ function execCommand(podName, command) {
         let stdout = "";
         let stderr = "";
 
-        const stdoutStream = {
-            write: (data) => {
-                stdout += data;
+        const stdoutStream = new Writable({
+            write(chunk, encoding, callback) {
+                stdout += chunk.toString();
+                callback();
             }
-        };
+        });
 
-        const stderrStream = {
-            write: (data) => {
-                stderr += data;
+        const stderrStream = new Writable({
+            write(chunk, encoding, callback) {
+                stderr += chunk.toString();
+                callback();
             }
-        };
+        });
 
         k8sExec.exec(
             "default",
@@ -34,7 +37,10 @@ function execCommand(podName, command) {
             false,
             (status) => {
                 if (status?.status === "Success") {
-                    resolve({ stdout, stderr });
+                    resolve({
+                        stdout,
+                        stderr
+                    });
                 } else {
                     reject(
                         new Error(
