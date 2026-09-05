@@ -20,6 +20,34 @@ app.get("/api/sandbox/health", (req, res) => {
     });
 });
 
+async function waitForPodReady(sandboxId) {
+    const podName = `sandbox-pod-${sandboxId}`;
+
+    for (let i = 0; i < 30; i++) {
+        try {
+            const pod = await k8sCoreV1Api.readNamespacedPod({
+                name: podName,
+                namespace: "default"
+            });
+
+            const phase = pod.status?.phase;
+            const nodeName = pod.spec?.nodeName;
+
+            if (phase === "Running" && nodeName) {
+                return;
+            }
+        } catch (error) {
+            // Pod may not exist yet
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    throw new Error("Sandbox pod did not become ready");
+}
+
+
+
 app.post("/api/sandbox/start", async (req, res) => {
     const sandboxId = uuid();
 
@@ -27,11 +55,14 @@ app.post("/api/sandbox/start", async (req, res) => {
         await createPod(sandboxId);
         await createService(sandboxId);
 
+        await waitForPodReady(sandboxId);
+
         res.status(201).json({
             message: "Sandbox created successfully",
             sandboxId,
             previewUrl: `http://${sandboxId}.localhost:8080`
         });
+
     } catch (error) {
         console.error("SANDBOX CREATION FAILED:", error);
 
@@ -41,7 +72,6 @@ app.post("/api/sandbox/start", async (req, res) => {
         });
     }
 });
-
 app.get("/api/sandbox/:sandboxId/status", async (req, res) => {
     const { sandboxId } = req.params;
 
@@ -58,17 +88,26 @@ app.get("/api/sandbox/:sandboxId/status", async (req, res) => {
             status: phase.toLowerCase()
         });
     } catch (error) {
-        if (error.response?.statusCode === 404) {
+        console.error(
+            "STATUS CHECK FAILED:",
+            JSON.stringify(error, Object.getOwnPropertyNames(error))
+        );
+
+        const statusCode =
+            error.response?.statusCode ||
+            error.statusCode ||
+            error.code;
+
+        if (Number(statusCode) === 404) {
             return res.status(404).json({
                 sandboxId,
                 status: "not_found"
             });
         }
 
-        console.error("STATUS CHECK FAILED:", error);
-
         res.status(500).json({
-            message: "Failed to check sandbox status"
+            message: "Failed to check sandbox status",
+            error: error.message
         });
     }
 });

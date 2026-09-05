@@ -1,6 +1,6 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-
+import { spawn } from "child_process";
 const execFileAsync = promisify(execFile);
 
 function validatePath(filePath) {
@@ -9,36 +9,48 @@ function validatePath(filePath) {
     }
 }
 async function execScript(podName, script, args = [], input) {
-    try {
-        const { stdout, stderr } = await execFileAsync(
-            "kubectl",
-            [
-                "exec",
-                podName,
-                "-c",
-                "sandbox",
-                ...(input !== undefined ? ["-i"] : []),
-                "--",
-                "sh",
-                "-c",
-                script,
-                "--", // marks end of options for sh; remaining args become $1, $2, ...
-                ...args
-            ],
-            {
-                maxBuffer: 10 * 1024 * 1024,
-                input
-            }
-        );
+    return new Promise((resolve, reject) => {
+        const child = spawn("kubectl", [
+            "exec",
+            podName,
+            "-c",
+            "sandbox",
+            ...(input !== undefined ? ["-i"] : []),
+            "--",
+            "sh",
+            "-c",
+            script,
+            "--",
+            ...args
+        ]);
 
-        return { stdout, stderr };
-    } catch (error) {
-        throw new Error(
-            error.stderr?.toString() ||
-            error.stdout?.toString() ||
-            error.message
-        );
-    }
+        let stdout = "";
+        let stderr = "";
+
+        child.stdout.on("data", data => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on("data", data => {
+            stderr += data.toString();
+        });
+
+        if (input !== undefined) {
+            child.stdin.write(input);
+            child.stdin.end();
+        }
+
+        child.on("close", code => {
+            if (code !== 0) {
+                reject(new Error(stderr || `kubectl exec failed with code ${code}`));
+                return;
+            }
+
+            resolve({ stdout, stderr });
+        });
+
+        child.on("error", reject);
+    });
 }
 
 

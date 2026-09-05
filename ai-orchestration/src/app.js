@@ -1,9 +1,13 @@
 import express from "express";
 import morgan from "morgan";
+import { generateActions } from "./services/llmplanner.js";
+import { Session } from "./models/Session.js";
+import { Prompt } from "./models/Prompt.js";
 
 import {
     createSandbox,
-    executeActions
+    executeActions,
+     getSandboxStatus
 } from "./services/sandboxClient.js";
 
 const app = express();
@@ -19,34 +23,69 @@ app.get("/api/ai/health", (req, res) => {
 });
 
 app.post("/api/ai/plan", async (req, res) => {
-    const { prompt } = req.body;
+    const { sessionId, prompt } = req.body;
 
-    if (!prompt) {
+    if (!sessionId || !prompt) {
         return res.status(400).json({
-            message: "Prompt is required"
+            message: "sessionId and prompt are required"
         });
     }
-
+ 
     try {
-        const sandbox = await createSandbox();
+        let session = await Session.findOne({ sessionId });
 
-        const actions = [
-            {
-                action: "create_file",
-                path: "src/App.jsx",
-                content: "// generated code will go here"
-            }
-        ];
+           let sandbox;
+
+          if (session) {
+      console.log("CHECKING EXISTING SANDBOX:", session.sandboxId);
+      const sandboxStatus = await getSandboxStatus(session.sandboxId);
+
+     if (sandboxStatus.exists) {
+        console.log("REUSING SANDBOX:", session.sandboxId);
+
+        sandbox = {
+            sandboxId: session.sandboxId
+        };
+    } else {
+        console.log("SANDBOX NOT FOUND, CREATING NEW ONE");
+
+        sandbox = await createSandbox();
+
+        session.sandboxId = sandbox.sandboxId;
+        await session.save();
+    }
+} else {
+    console.log("CREATING NEW SANDBOX");
+
+    sandbox = await createSandbox();
+
+    session = await Session.create({
+        sessionId,
+        sandboxId: sandbox.sandboxId
+    });
+}
+
+        const actions = await generateActions(prompt);
+
+        console.log("GENERATED ACTIONS:", actions);
 
         const result = await executeActions(
             sandbox.sandboxId,
             actions
         );
 
+        await Prompt.create({
+            sessionId,
+            prompt,
+            actions,
+            result
+        });
+
         res.json({
             message: "AI orchestration completed",
-            prompt,
+            sessionId,
             sandbox,
+            prompt,
             result
         });
 
@@ -55,6 +94,28 @@ app.post("/api/ai/plan", async (req, res) => {
 
         res.status(500).json({
             message: "AI orchestration failed",
+            error: error.message
+        });
+    }
+});
+
+app.get("/api/ai/sessions/:sessionId/history", async (req, res) => {
+    const { sessionId } = req.params;
+
+    try {
+        const history = await Prompt.find({ sessionId })
+            .sort({ createdAt: 1 });
+
+        res.json({
+            sessionId,
+            history
+        });
+
+    } catch (error) {
+        console.error("HISTORY FETCH FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to fetch session history",
             error: error.message
         });
     }
