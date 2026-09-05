@@ -44,7 +44,7 @@ export async function executeActions(sandboxId, actions) {
 
 export async function getSandboxStatus(sandboxId) {
     const response = await fetch(
-        `http://localhost:3001/api/sandbox/${sandboxId}/status`
+        `${SANDBOX_SERVER_URL}/api/sandbox/${sandboxId}/status`
     );
 
     const data = await response.json();
@@ -57,17 +57,17 @@ export async function getSandboxStatus(sandboxId) {
     }
 
     if (!response.ok) {
-    console.log("SANDBOX STATUS RESPONSE:", {
-        status: response.status,
-        data
-    });
+        console.log("SANDBOX STATUS RESPONSE:", {
+            status: response.status,
+            data
+        });
 
-    throw new Error(
-        data.error ||
-        data.message ||
-        `Sandbox status check failed: ${response.status}`
-    );
-}
+        throw new Error(
+            data.error ||
+            data.message ||
+            `Sandbox status check failed: ${response.status}`
+        );
+    }
 
     return {
         exists: true,
