@@ -1,23 +1,27 @@
 import mongoose from "mongoose";
 
-const sessionSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
     {
-        sessionId: {
+        googleId: {
             type: String,
             required: true,
             unique: true
         },
 
-        userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
+        email: {
+            type: String,
             required: true,
-            index: true
+            unique: true
         },
 
-        sandboxId: {
+        name: {
             type: String,
             required: true
+        },
+
+        avatar: {
+            type: String,
+            default: null
         }
     },
     {
@@ -25,7 +29,4 @@ const sessionSchema = new mongoose.Schema(
     }
 );
 
-export const Session = mongoose.model(
-    "Session",
-    sessionSchema
-);
+export const User = mongoose.model("User", userSchema);

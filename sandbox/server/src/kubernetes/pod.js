@@ -14,6 +14,7 @@ export async function createPod(sandboxId) {
         },
 
         spec: {
+            automountServiceAccountToken: false,
             containers: [
                 {
                     name: "sandbox",

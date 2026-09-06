@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: ai-orchestration
-          image: ai-orchestration:v3
+          image: ai-orchestration:v6
           imagePullPolicy: IfNotPresent
 
           env:
@@ -37,7 +37,11 @@ spec:
                 secretKeyRef:
                   name: ai-orchestration-secret
                   key: GEMINI_API_KEY
-
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ai-orchestration-secret
+                  key: GOOGLE_CLIENT_ID
           resources:
             requests:
               cpu: "100m"

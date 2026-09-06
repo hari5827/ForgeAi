@@ -74,3 +74,24 @@ export async function getSandboxStatus(sandboxId) {
         status: data.status
     };
 }
+
+export async function deleteSandbox(sandboxId) {
+    const response = await fetch(
+        `${SANDBOX_SERVER_URL}/api/sandbox/${sandboxId}`,
+        {
+            method: "DELETE"
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data.error ||
+            data.message ||
+            `Sandbox deletion failed: ${response.status}`
+        );
+    }
+
+    return data;
+}
