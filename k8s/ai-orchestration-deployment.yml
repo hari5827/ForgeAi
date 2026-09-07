@@ -1,9 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: ai-orchestration-deployment
-
 spec:
   replicas: 1
 
@@ -37,11 +35,34 @@ spec:
                 secretKeyRef:
                   name: ai-orchestration-secret
                   key: GEMINI_API_KEY
+
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   name: ai-orchestration-secret
                   key: GOOGLE_CLIENT_ID
+
+          ports:
+            - containerPort: 4000
+
+          livenessProbe:
+            httpGet:
+              path: /api/ai/health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /api/ai/health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
           resources:
             requests:
               cpu: "100m"
@@ -50,5 +71,4 @@ spec:
               cpu: "500m"
               memory: "512Mi"
 
-          ports:
-            - containerPort: 4000
+            

@@ -7,6 +7,7 @@ import { Prompt } from "./models/Prompt.js";
 import { validateActions } from "./services/actionValidator.js";
 import { authenticateWithGoogle } from "./services/authService.js";
 import { authMiddleware } from "./middleware/authMiddleware.js";
+import rateLimit from "express-rate-limit";
 import {
     createSandbox,
     executeActions,
@@ -20,7 +21,18 @@ app.use(
         origin: "http://localhost:5173"
     })
 );
-
+const aiPlanLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 10,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+        message: "Too many AI requests. Please try again later."
+    },
+    keyGenerator: (req) => {
+        return req.user?._id?.toString() || req.ip;
+    }
+});
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -31,7 +43,7 @@ app.get("/api/ai/health", (req, res) => {
     });
 });
 
-app.post("/api/ai/plan", authMiddleware, async (req, res) => {
+app.post("/api/ai/plan", authMiddleware, aiPlanLimiter, async (req, res) => {
     const { sessionId, prompt } = req.body;
 
     if (
