@@ -334,4 +334,78 @@ app.post(  "/api/auth/logout", authMiddleware,async (req, res) => {
     }
 );
 
+app.post(
+    "/api/ai/sessions/:sessionId/sandbox",
+    authMiddleware,
+    async (req, res) => {
+        const { sessionId } = req.params;
+
+        if (!sessionId || !sessionId.trim()) {
+            return res.status(400).json({
+                message: "sessionId is required"
+            });
+        }
+
+        try {
+            let session = await Session.findOne({ sessionId });
+
+            // Existing session: verify ownership and reuse/create sandbox.
+            if (session) {
+                if (!session.userId.equals(req.user._id)) {
+                    return res.status(403).json({
+                        message: "You do not have access to this session"
+                    });
+                }
+
+                const sandboxStatus = await getSandboxStatus(
+                    session.sandboxId
+                );
+
+                if (sandboxStatus.exists) {
+                    return res.json({
+                        sessionId,
+                        sandboxId: session.sandboxId,
+                        previewUrl: `http://${session.sandboxId}.localhost:8080`
+                    });
+                }
+
+                const sandbox = await createSandbox();
+
+                session.sandboxId = sandbox.sandboxId;
+                await session.save();
+
+                return res.status(201).json({
+                    sessionId,
+                    sandboxId: sandbox.sandboxId,
+                    previewUrl: `http://${sandbox.sandboxId}.localhost:8080`
+                });
+            }
+
+            // No session yet: create the sandbox and session.
+            const sandbox = await createSandbox();
+
+            session = await Session.create({
+                sessionId,
+                userId: req.user._id,
+                sandboxId: sandbox.sandboxId
+            });
+
+            return res.status(201).json({
+                sessionId,
+                sandboxId: sandbox.sandboxId,
+                previewUrl: `http://${sandbox.sandboxId}.localhost:8080`
+            });
+        } catch (error) {
+            console.error(
+                "SESSION SANDBOX FAILED:",
+                error
+            );
+
+            return res.status(500).json({
+                message: "Failed to create session sandbox",
+                error: error.message
+            });
+        }
+    }
+);
 export default app;

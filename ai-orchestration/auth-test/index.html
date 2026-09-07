@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ForgeAI Google Auth Test</title>
+</head>
+<body>
+    <h2>ForgeAI Google Auth Test</h2>
+
+    <div id="google-button"></div>
+    <pre id="result"></pre>
+
+    <script src="https://accounts.google.com/gsi/client" async></script>
+
+    <script>
+        async function handleCredentialResponse(response) {
+            console.log("Google credential received");
+
+            try {
+                const result = await fetch(
+                    "http://localhost:4000/api/auth/google",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            credential: response.credential
+                        })
+                    }
+                );
+
+                const data = await result.json();
+
+                document.getElementById("result").textContent =
+                    JSON.stringify(data, null, 2);
+
+                console.log("Backend response:", data);
+            } catch (error) {
+                console.error(error);
+
+                document.getElementById("result").textContent =
+                    error.message;
+            }
+        }
+
+        window.onload = function () {
+            google.accounts.id.initialize({
+                client_id: "608680963736-s67cvhkevskh477ur2vc9kdou272cp14.apps.googleusercontent.com",
+                callback: handleCredentialResponse
+            });
+
+            google.accounts.id.renderButton(
+                document.getElementById("google-button"),
+                {
+                    theme: "outline",
+                    size: "large",
+                    text: "signin_with"
+                }
+            );
+        };
+    </script>
+</body>
+</html>

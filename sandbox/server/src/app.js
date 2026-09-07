@@ -1,6 +1,7 @@
 import express from "express";
 import morgan from "morgan";
 import { v7 as uuid } from "uuid";
+import cors from "cors";
 import { k8sCoreV1Api } from "./kubernetes/config.js";
 import { cleanupExpiredSandboxes } from "./kubernetes/cleanup.js";
 import { createPod } from "./kubernetes/pod.js";
@@ -9,7 +10,11 @@ import { createService } from "./kubernetes/service.js";
 import { executeAction } from "./service/sandboxExecutor.js";
 
 const app = express();
-
+app.use(
+    cors({
+        origin: "http://localhost:5173"
+    })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -169,6 +174,76 @@ app.post("/api/sandbox/:sandboxId/execute", async (req, res) => {
         });
     }
 });
+
+app.get("/api/sandbox/:sandboxId/files", async (req, res) => {
+    const { sandboxId } = req.params;
+
+    try {
+        const result = await executeAction(sandboxId, {
+            action: "list_files"
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error("FILE LIST FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to list sandbox files",
+            error: error.message
+        });
+    }
+});
+
+app.get("/api/sandbox/:sandboxId/files/*path", async (req, res) => {
+    const { sandboxId } = req.params;
+    const filePath = req.params.path.join("/");
+
+    try {
+        const result = await executeAction(sandboxId, {
+            action: "read_file",
+            path: filePath
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error("FILE READ FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to read sandbox file",
+            error: error.message
+        });
+    }
+});
+
+app.put("/api/sandbox/:sandboxId/files/*path", async (req, res) => {
+    const { sandboxId } = req.params;
+    const filePath = req.params.path.join("/");
+    const { content } = req.body;
+
+    if (typeof content !== "string") {
+        return res.status(400).json({
+            message: "content must be a string"
+        });
+    }
+
+    try {
+        const result = await executeAction(sandboxId, {
+            action: "update_file",
+            path: filePath,
+            content
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error("FILE WRITE FAILED:", error);
+
+        res.status(500).json({
+            message: "Failed to write sandbox file",
+            error: error.message
+        });
+    }
+});
+
 setInterval(() => {
     cleanupExpiredSandboxes().catch((error) => {
         console.error("CLEANUP FAILED:", error.message);

@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { spawn } from "child_process";
+
 const execFileAsync = promisify(execFile);
 
 function validatePath(filePath) {
@@ -8,6 +9,7 @@ function validatePath(filePath) {
         throw new Error("Invalid file path");
     }
 }
+
 async function execScript(podName, script, args = [], input) {
     return new Promise((resolve, reject) => {
         const child = spawn("kubectl", [
@@ -27,11 +29,11 @@ async function execScript(podName, script, args = [], input) {
         let stdout = "";
         let stderr = "";
 
-        child.stdout.on("data", data => {
+        child.stdout.on("data", (data) => {
             stdout += data.toString();
         });
 
-        child.stderr.on("data", data => {
+        child.stderr.on("data", (data) => {
             stderr += data.toString();
         });
 
@@ -40,9 +42,11 @@ async function execScript(podName, script, args = [], input) {
             child.stdin.end();
         }
 
-        child.on("close", code => {
+        child.on("close", (code) => {
             if (code !== 0) {
-                reject(new Error(stderr || `kubectl exec failed with code ${code}`));
+                reject(
+                    new Error(stderr || `kubectl exec failed with code ${code}`)
+                );
                 return;
             }
 
@@ -53,13 +57,23 @@ async function execScript(podName, script, args = [], input) {
     });
 }
 
-
 async function execCommand(podName, command) {
     try {
         const { stdout, stderr } = await execFileAsync(
             "kubectl",
-            ["exec", podName, "-c", "sandbox", "--", "sh", "-c", command],
-            { maxBuffer: 10 * 1024 * 1024 }
+            [
+                "exec",
+                podName,
+                "-c",
+                "sandbox",
+                "--",
+                "sh",
+                "-c",
+                command
+            ],
+            {
+                maxBuffer: 10 * 1024 * 1024
+            }
         );
 
         return { stdout, stderr };
@@ -76,7 +90,6 @@ export async function executeAction(sandboxId, action) {
     const podName = `sandbox-pod-${sandboxId}`;
 
     switch (action.action) {
-
         case "create_file":
         case "update_file": {
             validatePath(action.path);
@@ -84,6 +97,7 @@ export async function executeAction(sandboxId, action) {
             if (typeof action.content !== "string") {
                 throw new Error("File content is required");
             }
+
             await execScript(
                 podName,
                 'mkdir -p "$(dirname "$1")" && base64 -d > "$1"',
@@ -119,13 +133,49 @@ export async function executeAction(sandboxId, action) {
                 throw new Error("Command is required");
             }
 
-            const result = await execCommand(podName, action.command);
+            const result = await execCommand(
+                podName,
+                action.command
+            );
 
             return {
                 action: "run_command",
                 status: "success",
                 stdout: result.stdout,
                 stderr: result.stderr
+            };
+        }
+
+        case "list_files": {
+            const result = await execScript(
+                podName,
+                'find . -type f -not -path "./node_modules/*" | sort'
+            );
+
+            return {
+                action: "list_files",
+                status: "success",
+                files: result.stdout
+                    .split("\n")
+                    .map((file) => file.replace(/^\.\//, "").trim())
+                    .filter(Boolean)
+            };
+        }
+
+        case "read_file": {
+            validatePath(action.path);
+
+            const result = await execScript(
+                podName,
+                'cat -- "$1"',
+                [action.path]
+            );
+
+            return {
+                action: "read_file",
+                path: action.path,
+                status: "success",
+                content: result.stdout
             };
         }
 
