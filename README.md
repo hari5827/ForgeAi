@@ -25,6 +25,7 @@ subdomain proxy.
 </p>
 
 <p>
+  <a href="#demo">Demo</a> •
   <a href="#how-it-works">How it works</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#security--isolation-model">Security</a> •
@@ -33,6 +34,27 @@ subdomain proxy.
 </p>
 
 </div>
+
+---
+
+## Demo
+
+**Prompt → live app** — type a feature request, watch the plan get generated
+and applied, see the preview update instantly via HMR.
+
+
+https://github.com/user-attachments/assets/cda3cdea-7386-4b0a-8b89-a682caa811da
+
+
+**Sandbox execution (terminal)** — the same request from the other side:
+validated actions running inside the isolated Kubernetes sandbox pod in real time.
+
+
+
+
+https://github.com/user-attachments/assets/1cc49fe4-8e53-4a3d-b2a6-f2b0da5735b9
+
+
 
 ---
 
@@ -316,6 +338,12 @@ All `/api/ai/*` and `/api/auth/me` / `/api/auth/logout` routes require
 | `POST` | `/api/ai/sessions/:sessionId/sandbox` | Ensure a sandbox exists for a session and return its preview URL |
 | `GET` | `/api/ai/health` | Health check |
 
+## Roadmap
+
+- [ ] File download / GitHub export for generated sandboxes
+- [ ] Multi-file diff view before actions are applied
+- [ ] Configurable sandbox templates beyond React + Vite
+- [ ] Usage dashboard for sandbox lifetime and cleanup history
 
 ## Author
 
