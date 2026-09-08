@@ -20,7 +20,7 @@ function getFileName(filePath) {
 
 function Workspace() {
     const navigate = useNavigate();
-    const { token, logout } = useAuth();
+    const { token, user, logout } = useAuth();
 
     const [sessionId] = useState(() => {
         const existingSessionId =
@@ -46,7 +46,7 @@ function Workspace() {
     const [files, setFiles] = useState([]);
     const [activeFile, setActiveFile] = useState(null);
     const [fileContent, setFileContent] = useState("");
-
+    const [aiStatus, setAiStatus] = useState("");
     const [prompt, setPrompt] = useState("");
     const [messages, setMessages] = useState([]);
 
@@ -154,7 +154,7 @@ function Workspace() {
     }, [token, sessionId]);
 
     /*
-     * Read selected file.
+     * Read selected file from sandbox.
      */
     useEffect(() => {
         if (!sandboxId || !activeFile) {
@@ -195,7 +195,7 @@ function Workspace() {
     }, [sandboxId, activeFile]);
 
     /*
-     * Monaco content change.
+     * Monaco change handler.
      */
     const handleFileChange = (content) => {
         setFileContent(content);
@@ -238,110 +238,59 @@ function Workspace() {
      * Send prompt to AI.
      */
     const handleSendPrompt = async () => {
-        const trimmedPrompt = prompt.trim();
+    const trimmedPrompt = prompt.trim();
 
-        if (
-            !trimmedPrompt ||
-            !token ||
-            !sandboxId ||
-            isSending
-        ) {
-            return;
+    if (!trimmedPrompt || sending) return;
+
+    setSending(true);
+    setAiStatus("Thinking...");
+
+    try {
+        setAiStatus("Planning...");
+
+        const result = await createAIPlan(
+            token,
+            sessionId,
+            trimmedPrompt
+        );
+
+        setAiStatus("Executing...");
+
+        // Existing refresh logic
+        const updatedFiles = await listFiles(sandboxId);
+        setFiles(updatedFiles);
+
+        if (activeFile) {
+            const content = await readFile(sandboxId, activeFile);
+            setEditorContent(content);
         }
 
-        try {
-            setIsSending(true);
-            setError("");
-
-            setMessages((currentMessages) => [
-                ...currentMessages,
-                {
-                    role: "user",
-                    content: trimmedPrompt
-                }
-            ]);
-
-            setPrompt("");
-
-            const result = await createAIPlan(
-                token,
-                sessionId,
-                trimmedPrompt
-            );
-
-            setMessages((currentMessages) => [
-                ...currentMessages,
-                {
-                    role: "assistant",
-                    content:
-                        result.message ||
-                        "Done. Your sandbox has been updated."
-                }
-            ]);
-
-            /*
-             * Refresh file explorer after AI execution.
-             */
-            const fileResult = await listFiles(
-                sandboxId
-            );
-
-            const updatedFiles =
-                fileResult.files.map((path) => ({
-                    path,
-                    name: getFileName(path)
-                }));
-
-            setFiles(updatedFiles);
-
-            /*
-             * Refresh current file.
-             */
-            if (
-                activeFile &&
-                updatedFiles.some(
-                    (file) =>
-                        file.path === activeFile
-                )
-            ) {
-                const updatedFile = await readFile(
-                    sandboxId,
-                    activeFile
-                );
-
-                setFileContent(
-                    updatedFile.content
-                );
-            } else if (
-                updatedFiles.length > 0
-            ) {
-                setActiveFile(
-                    updatedFiles[0].path
-                );
-            } else {
-                setActiveFile(null);
-                setFileContent("");
+        // Existing chat update logic
+        setMessages((prev) => [
+            ...prev,
+            {
+                role: "user",
+                content: trimmedPrompt
+            },
+            {
+                role: "assistant",
+                content: result?.message || "Completed"
             }
-        } catch (err) {
-            console.error(
-                "AI PLAN FAILED:",
-                err
-            );
+        ]);
 
-            setError(err.message);
+        setPrompt("");
+        setAiStatus("Done");
+    } catch (error) {
+        console.error(error);
+        setAiStatus("Failed");
+    } finally {
+        setSending(false);
 
-            setMessages((currentMessages) => [
-                ...currentMessages,
-                {
-                    role: "assistant",
-                    content:
-                        `Failed: ${err.message}`
-                }
-            ]);
-        } finally {
-            setIsSending(false);
-        }
-    };
+        setTimeout(() => {
+            setAiStatus("");
+        }, 1500);
+    }
+};
 
     /*
      * Execute terminal command.
@@ -495,12 +444,23 @@ function Workspace() {
                                 )
                             }
                         >
-                            <div className="user-avatar">
-                                U
-                            </div>
+                            {user?.avatar ? (
+                                <img
+                                    className="user-avatar-image"
+                                    src={user.avatar}
+                                    alt=""
+                                />
+                            ) : (
+                                <div className="user-avatar">
+                                    {user?.name
+                                        ?.charAt(0)
+                                        ?.toUpperCase() ||
+                                        "U"}
+                                </div>
+                            )}
 
                             <span className="user-name">
-                                User
+                                {user?.name || "User"}
                             </span>
 
                             <span className="user-chevron">
@@ -513,17 +473,30 @@ function Workspace() {
 
                                 <div className="user-dropdown-header">
 
-                                    <div className="user-avatar large">
-                                        U
-                                    </div>
+                                    {user?.avatar ? (
+                                        <img
+                                            className="user-avatar-image large"
+                                            src={user.avatar}
+                                            alt=""
+                                        />
+                                    ) : (
+                                        <div className="user-avatar large">
+                                            {user?.name
+                                                ?.charAt(0)
+                                                ?.toUpperCase() ||
+                                                "U"}
+                                        </div>
+                                    )}
 
                                     <div>
                                         <div className="user-dropdown-name">
-                                            ForgeAI User
+                                            {user?.name ||
+                                                "ForgeAI User"}
                                         </div>
 
                                         <div className="user-dropdown-email">
-                                            Signed in with Google
+                                            {user?.email ||
+                                                ""}
                                         </div>
                                     </div>
 
@@ -556,7 +529,7 @@ function Workspace() {
             {/* MAIN WORKSPACE */}
             <div className="workspace-body">
 
-                {/* FILE EXPLORER */}
+                {/* EXPLORER */}
                 <aside className="workspace-sidebar">
 
                     <FileExplorer
@@ -627,6 +600,7 @@ function Workspace() {
                                             key={index}
                                             className={`chat-message ${message.role}`}
                                         >
+
                                             <div className="message-label">
                                                 {message.role ===
                                                 "user"
@@ -637,6 +611,7 @@ function Workspace() {
                                             <div className="message-content">
                                                 {message.content}
                                             </div>
+
                                         </div>
                                     )
                                 )

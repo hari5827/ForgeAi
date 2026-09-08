@@ -317,7 +317,24 @@ app.post("/api/auth/google", async (req, res) => {
         });
     }
 });
+app.get("/api/auth/me", authMiddleware, async (req, res) => {
+    try {
+        res.json({
+            user: {
+                id: req.user._id,
+                name: req.user.name,
+                email: req.user.email,
+                avatar: req.user.avatar
+            }
+        });
+    } catch (error) {
+        console.error("AUTH ME FAILED:", error);
 
+        res.status(500).json({
+            message: "Failed to fetch user"
+        });
+    }
+});
 app.post(  "/api/auth/logout", authMiddleware,async (req, res) => {
         try {
             await req.authSession.deleteOne();

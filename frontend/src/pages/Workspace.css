@@ -788,3 +788,20 @@
         display: none;
     }
 }
+
+.user-avatar-image {
+    width: 24px;
+    height: 24px;
+
+    display: block;
+
+    border-radius: 50%;
+
+    object-fit: cover;
+}
+
+.user-avatar-image.large {
+    width: 34px;
+    height: 34px;
+}
+

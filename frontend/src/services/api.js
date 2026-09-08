@@ -146,3 +146,16 @@ export async function executeCommand(sandboxId, command) {
 
     return parseResponse(response);
 }
+
+export async function getCurrentUser(token) {
+    const response = await fetch(
+        `${AI_API_URL}/api/auth/me`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    return parseResponse(response);
+}
