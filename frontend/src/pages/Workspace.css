@@ -684,6 +684,52 @@
     opacity: 0.5;
 }
 
+.terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.terminal-clear-button {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+
+    padding: 4px 8px;
+
+    border-radius: 4px;
+
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.terminal-clear-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+}
+
+.terminal-clear-button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.terminal-input-row input:focus {
+    caret-color: var(--blue-light);
+}
+
+.terminal-line.command {
+    margin-top: 2px;
+    color: var(--blue-light);
+}
+
+.terminal-line.output {
+    padding-left: 2px;
+}
+
+.terminal-line.error {
+    padding-left: 2px;
+}
+
 /* =========================
    LOADING / ERROR
 ========================= */

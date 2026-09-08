@@ -54,52 +54,32 @@ function Workspace() {
         return newSessionId;
     });
 
-    const [sandboxId, setSandboxId] =
-        useState(null);
+    const [sandboxId, setSandboxId] =useState(null);
 
-    const [previewUrl, setPreviewUrl] =
-        useState(null);
-
+    const [previewUrl, setPreviewUrl] = useState(null);
     const [files, setFiles] = useState([]);
+    const [activeFile, setActiveFile] =useState(null);
 
-    const [activeFile, setActiveFile] =
-        useState(null);
+    const [fileContent, setFileContent] =useState("");
 
-    const [fileContent, setFileContent] =
-        useState("");
+    const [aiStatus, setAiStatus] =useState("");
 
-    const [aiStatus, setAiStatus] =
-        useState("");
+    const [prompt, setPrompt] = useState("");
 
-    const [prompt, setPrompt] =
-        useState("");
+    const [messages, setMessages] = useState([]);
+    const [terminalInput, setTerminalInput] = useState("");
+    const [terminalOutput, setTerminalOutput] =useState([]);
+    const [isExecuting, setIsExecuting] =useState(false);
+    const handleClearTerminal = () => {
+    setTerminalOutput([]);
+      };
+    const [showUserMenu, setShowUserMenu] = useState(false);
 
-    const [messages, setMessages] =
-        useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const [terminalInput, setTerminalInput] =
-        useState("");
-
-    const [terminalOutput, setTerminalOutput] =
-        useState([]);
-
-    const [isExecuting, setIsExecuting] =
-        useState(false);
-
-    const [showUserMenu, setShowUserMenu] =
-        useState(false);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [isSending, setIsSending] =
-        useState(false);
-
-    const [isSaving, setIsSaving] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
+    const [isSending, setIsSending] =useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState("");
 
     /*
      * Load sandbox, preview, files and chat history.
@@ -1092,11 +1072,16 @@ function Workspace() {
             {/* TERMINAL */}
             <section className="workspace-terminal">
 
-                <div className="panel-header">
-                    <span>
-                        Terminal
-                    </span>
-                </div>
+                <div className="panel-header terminal-header">
+             <span>Terminal</span>
+             <button
+        className="terminal-clear-button"
+        onClick={handleClearTerminal}
+        disabled={terminalOutput.length === 0}
+            >
+             Clear
+           </button>
+           </div>
 
                 <div className="terminal-content">
 
