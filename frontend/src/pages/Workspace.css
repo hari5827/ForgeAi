@@ -42,22 +42,11 @@
     width: 30px;
     height: 30px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    flex-shrink: 0;
 
     border-radius: 8px;
-
-    background: linear-gradient(
-        135deg,
-        var(--blue-light),
-        var(--blue-dark)
-    );
-
-    color: white;
-
-    font-size: 15px;
-    font-weight: 800;
+    object-fit: contain;
 }
 
 .workspace-actions {
@@ -746,6 +735,41 @@
     color: var(--text-muted);
 
     font-size: 13px;
+}
+
+.workspace-loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 18px;
+}
+
+.workspace-loading-logo {
+    border-radius: 16px;
+    box-shadow: 0 0 40px rgba(37, 99, 235, 0.18);
+
+    animation: forgeai-logo-pulse 2s ease-in-out infinite;
+}
+
+.workspace-loading-text {
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+}
+
+@keyframes forgeai-logo-pulse {
+    0%,
+    100% {
+        opacity: 0.55;
+        transform: scale(0.94);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.03);
+    }
 }
 
 .workspace-error {

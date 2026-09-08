@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import CodeEditor from "../components/CodeEditor";
 import FileExplorer from "../components/FileExplorer";
+import Logo from "../components/Logo";
 
 import {
     getSessionSandbox,
@@ -685,7 +686,15 @@ function Workspace() {
     if (loading) {
         return (
             <div className="workspace-loading">
-                Loading ForgeAI workspace...
+                <div className="workspace-loading-content">
+                    <Logo
+                        className="workspace-loading-logo"
+                        size={72}
+                    />
+                    <span className="workspace-loading-text">
+                        Loading ForgeAI...
+                    </span>
+                </div>
             </div>
         );
     }
@@ -697,9 +706,10 @@ function Workspace() {
             <header className="workspace-topbar">
 
                 <div className="workspace-brand">
-                    <div className="workspace-brand-mark">
-                        F
-                    </div>
+                    <Logo
+                        className="workspace-brand-mark"
+                        size={30}
+                    />
 
                     <span>
                         ForgeAI

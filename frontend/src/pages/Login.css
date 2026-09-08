@@ -52,21 +52,11 @@
     width: 34px;
     height: 34px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
+    flex-shrink: 0;
 
     border-radius: 9px;
-
-    background: linear-gradient(
-        135deg,
-        var(--blue-light),
-        var(--blue-dark)
-    );
-
-    color: white;
-    font-size: 18px;
-    font-weight: 800;
+    object-fit: contain;
 
     box-shadow: 0 0 24px rgba(37, 99, 235, 0.3);
 }

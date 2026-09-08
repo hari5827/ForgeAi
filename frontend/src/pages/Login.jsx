@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "../components/Logo";
 import "./Login.css";
 
 function Login() {
@@ -105,7 +106,7 @@ function Login() {
 
             <section className="login-card">
                 <div className="login-brand">
-                    <div className="brand-mark">F</div>
+                    <Logo className="brand-mark" size={34} />
                     <span>ForgeAI</span>
                 </div>
 
