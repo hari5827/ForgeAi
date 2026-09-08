@@ -338,13 +338,7 @@ All `/api/ai/*` and `/api/auth/me` / `/api/auth/logout` routes require
 | `POST` | `/api/ai/sessions/:sessionId/sandbox` | Ensure a sandbox exists for a session and return its preview URL |
 | `GET` | `/api/ai/health` | Health check |
 
-## Roadmap
-
-- [ ] File download / GitHub export for generated sandboxes
-- [ ] Multi-file diff view before actions are applied
-- [ ] Configurable sandbox templates beyond React + Vite
-- [ ] Usage dashboard for sandbox lifetime and cleanup history
-
+
 ## Author
 
 Built by **Hari** ([@hari5827](https://github.com/hari5827)) — portfolio at
