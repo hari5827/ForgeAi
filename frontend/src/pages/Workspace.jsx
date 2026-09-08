@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import {
+    useEffect,useState
+} from "react";
+
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import CodeEditor from "../components/CodeEditor";
 import FileExplorer from "../components/FileExplorer";
+
 import {
     getSessionSandbox,
     listFiles,
@@ -12,19 +16,29 @@ import {
     getSessionHistory,
     executeCommand
 } from "../services/api";
+
 import "./Workspace.css";
 
 function getFileName(filePath) {
     return filePath.split("/").pop();
 }
 
+function sleep(ms) {
+    return new Promise((resolve) =>
+        setTimeout(resolve, ms)
+    );
+}
+
 function Workspace() {
     const navigate = useNavigate();
     const { token, user, logout } = useAuth();
 
+
     const [sessionId] = useState(() => {
         const existingSessionId =
-            localStorage.getItem("forgeai_session_id");
+            localStorage.getItem(
+                "forgeai_session_id"
+            );
 
         if (existingSessionId) {
             return existingSessionId;
@@ -40,26 +54,52 @@ function Workspace() {
         return newSessionId;
     });
 
-    const [sandboxId, setSandboxId] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
+    const [sandboxId, setSandboxId] =
+        useState(null);
+
+    const [previewUrl, setPreviewUrl] =
+        useState(null);
 
     const [files, setFiles] = useState([]);
-    const [activeFile, setActiveFile] = useState(null);
-    const [fileContent, setFileContent] = useState("");
-    const [aiStatus, setAiStatus] = useState("");
-    const [prompt, setPrompt] = useState("");
-    const [messages, setMessages] = useState([]);
 
-    const [terminalInput, setTerminalInput] = useState("");
-    const [terminalOutput, setTerminalOutput] = useState([]);
-    const [isExecuting, setIsExecuting] = useState(false);
+    const [activeFile, setActiveFile] =
+        useState(null);
 
-    const [showUserMenu, setShowUserMenu] = useState(false);
+    const [fileContent, setFileContent] =
+        useState("");
 
-    const [loading, setLoading] = useState(true);
-    const [isSending, setIsSending] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState("");
+    const [aiStatus, setAiStatus] =
+        useState("");
+
+    const [prompt, setPrompt] =
+        useState("");
+
+    const [messages, setMessages] =
+        useState([]);
+
+    const [terminalInput, setTerminalInput] =
+        useState("");
+
+    const [terminalOutput, setTerminalOutput] =
+        useState([]);
+
+    const [isExecuting, setIsExecuting] =
+        useState(false);
+
+    const [showUserMenu, setShowUserMenu] =
+        useState(false);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [isSending, setIsSending] =
+        useState(false);
+
+    const [isSaving, setIsSaving] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
 
     /*
      * Load sandbox, preview, files and chat history.
@@ -72,35 +112,111 @@ function Workspace() {
                 setLoading(true);
                 setError("");
 
-                const sandbox = await getSessionSandbox(
-                    token,
-                    sessionId
-                );
+                /*
+                 * Get or create the sandbox.
+                 */
+                const sandbox =
+                    await getSessionSandbox(
+                        token,
+                        sessionId
+                    );
 
                 if (cancelled) return;
 
-                setSandboxId(sandbox.sandboxId);
-                setPreviewUrl(sandbox.previewUrl);
+                const sandboxIdFromServer =
+                    sandbox.sandboxId;
 
-                const fileResult = await listFiles(
-                    sandbox.sandboxId
+                setSandboxId(
+                    sandboxIdFromServer
                 );
 
-                if (cancelled) return;
+                /*
+                 * A newly-created sandbox may need
+                 * a few seconds before its services
+                 * are ready.
+                 *
+                 * listFiles() is used as the readiness
+                 * check because it talks directly to
+                 * the sandbox server.
+                 */
+                let fileResult = null;
+                let lastError = null;
 
-                const mappedFiles = fileResult.files.map(
-                    (path) => ({
-                        path,
-                        name: getFileName(path)
-                    })
-                );
+                for (
+                    let attempt = 0;
+                    attempt < 10;
+                    attempt++
+                ) {
+                    if (cancelled) return;
+
+                    try {
+                        fileResult =
+                            await listFiles(
+                                sandboxIdFromServer
+                            );
+
+                        break;
+                    } catch (err) {
+                        lastError = err;
+
+                        if (attempt === 9) {
+                            throw lastError;
+                        }
+
+                        await sleep(1000);
+                    }
+                }
+
+                if (
+                    cancelled ||
+                    !fileResult
+                ) {
+                    return;
+                }
+
+                /*
+                 * Map file paths returned by the API.
+                 */
+                const mappedFiles =
+                    fileResult.files.map(
+                        (path) => ({
+                            path,
+                            name: getFileName(path)
+                        })
+                    );
 
                 setFiles(mappedFiles);
 
-                if (mappedFiles.length > 0) {
-                    setActiveFile(mappedFiles[0].path);
+                /*
+                 * Select the first file.
+                 */
+                if (
+                    mappedFiles.length > 0
+                ) {
+                    setActiveFile(
+                        mappedFiles[0].path
+                    );
+                } else {
+                    setActiveFile(null);
+                    setFileContent("");
                 }
 
+                /*
+                 * Give the Vite preview/router a small
+                 * amount of extra startup time before
+                 * mounting the iframe.
+                 */
+                await sleep(2000);
+
+                if (cancelled) return;
+
+                setPreviewUrl(
+                    sandbox.previewUrl
+                );
+
+                /*
+                 * Load chat history.
+                 */
                 const historyResult =
                     await getSessionHistory(
                         token,
@@ -112,7 +228,8 @@ function Workspace() {
                 const historyMessages = [];
 
                 for (
-                    const item of historyResult.history
+                    const item of
+                        historyResult.history
                 ) {
                     historyMessages.push({
                         role: "user",
@@ -127,7 +244,9 @@ function Workspace() {
                     });
                 }
 
-                setMessages(historyMessages);
+                setMessages(
+                    historyMessages
+                );
             } catch (err) {
                 if (!cancelled) {
                     console.error(
@@ -135,7 +254,10 @@ function Workspace() {
                         err
                     );
 
-                    setError(err.message);
+                    setError(
+                        err?.message ||
+                        "Failed to load workspace."
+                    );
                 }
             } finally {
                 if (!cancelled) {
@@ -144,9 +266,13 @@ function Workspace() {
             }
         }
 
-        if (token) {
-            loadWorkspace();
-        }
+        /*
+         * Only initialize once for this mounted
+         * Workspace instance.
+         */
+         if (token) {
+    loadWorkspace();
+}
 
         return () => {
             cancelled = true;
@@ -167,13 +293,16 @@ function Workspace() {
             try {
                 setError("");
 
-                const result = await readFile(
-                    sandboxId,
-                    activeFile
-                );
+                const result =
+                    await readFile(
+                        sandboxId,
+                        activeFile
+                    );
 
                 if (!cancelled) {
-                    setFileContent(result.content);
+                    setFileContent(
+                        result.content
+                    );
                 }
             } catch (err) {
                 if (!cancelled) {
@@ -182,7 +311,10 @@ function Workspace() {
                         err
                     );
 
-                    setError(err.message);
+                    setError(
+                        err?.message ||
+                        "Failed to read file."
+                    );
                 }
             }
         }
@@ -228,7 +360,10 @@ function Workspace() {
                 err
             );
 
-            setError(err.message);
+            setError(
+                err?.message ||
+                "Failed to save file."
+            );
         } finally {
             setIsSaving(false);
         }
@@ -238,133 +373,314 @@ function Workspace() {
      * Send prompt to AI.
      */
     const handleSendPrompt = async () => {
-    const trimmedPrompt = prompt.trim();
-
-    if (!trimmedPrompt || sending) return;
-
-    setSending(true);
-    setAiStatus("Thinking...");
-
-    try {
-        setAiStatus("Planning...");
-
-        const result = await createAIPlan(
-            token,
-            sessionId,
-            trimmedPrompt
-        );
-
-        setAiStatus("Executing...");
-
-        // Existing refresh logic
-        const updatedFiles = await listFiles(sandboxId);
-        setFiles(updatedFiles);
-
-        if (activeFile) {
-            const content = await readFile(sandboxId, activeFile);
-            setEditorContent(content);
-        }
-
-        // Existing chat update logic
-        setMessages((prev) => [
-            ...prev,
-            {
-                role: "user",
-                content: trimmedPrompt
-            },
-            {
-                role: "assistant",
-                content: result?.message || "Completed"
-            }
-        ]);
-
-        setPrompt("");
-        setAiStatus("Done");
-    } catch (error) {
-        console.error(error);
-        setAiStatus("Failed");
-    } finally {
-        setSending(false);
-
-        setTimeout(() => {
-            setAiStatus("");
-        }, 1500);
-    }
-};
-
-    /*
-     * Execute terminal command.
-     */
-    const handleTerminalCommand = async () => {
-        const command = terminalInput.trim();
+        const trimmedPrompt =
+            prompt.trim();
 
         if (
-            !command ||
-            !sandboxId ||
-            isExecuting
+            !trimmedPrompt ||
+            isSending ||
+            !token ||
+            !sessionId
         ) {
             return;
         }
 
-        try {
-            setIsExecuting(true);
-            setError("");
+        setIsSending(true);
+        setError("");
+        setAiStatus("Thinking...");
 
-            setTerminalOutput((current) => [
+        /*
+         * Add user message immediately.
+         */
+        setMessages((current) => [
+            ...current,
+            {
+                role: "user",
+                content: trimmedPrompt
+            }
+        ]);
+
+        setPrompt("");
+
+        let planningTimer;
+
+        try {
+            planningTimer = setTimeout(() => {
+                setAiStatus(
+                    "Planning..."
+                );
+            }, 1000);
+
+            /*
+             * AI planning + action execution.
+             */
+            const result =
+                await createAIPlan(
+                    token,
+                    sessionId,
+                    trimmedPrompt
+                );
+
+            clearTimeout(planningTimer);
+
+            setAiStatus(
+                "Refreshing workspace..."
+            );
+
+            /*
+             * Get current sandbox again.
+             */
+            const sandbox =
+                await getSessionSandbox(
+                    token,
+                    sessionId
+                );
+
+            if (sandbox?.sandboxId) {
+                setSandboxId(
+                    sandbox.sandboxId
+                );
+
+                /*
+                 * Hide preview briefly while refreshed
+                 * sandbox state settles.
+                 */
+                setPreviewUrl(null);
+
+                /*
+                 * Refresh files.
+                 */
+                const fileResult =
+                    await listFiles(
+                        sandbox.sandboxId
+                    );
+
+                const mappedFiles =
+                    fileResult.files.map(
+                        (path) => ({
+                            path,
+                            name: getFileName(path)
+                        })
+                    );
+
+                setFiles(mappedFiles);
+
+                /*
+                 * Refresh currently selected file.
+                 */
+                if (
+                    activeFile &&
+                    mappedFiles.some(
+                        (file) =>
+                            file.path ===
+                            activeFile
+                    )
+                ) {
+                    const refreshedFile =
+                        await readFile(
+                            sandbox.sandboxId,
+                            activeFile
+                        );
+
+                    setFileContent(
+                        refreshedFile.content
+                    );
+                }
+
+                /*
+                 * Give preview time to settle.
+                 */
+                await sleep(1500);
+
+                setPreviewUrl(
+                    sandbox.previewUrl
+                );
+            }
+
+            /*
+             * Add assistant response.
+             */
+            setMessages((current) => [
                 ...current,
                 {
-                    type: "command",
-                    text: `$ ${command}`
+                    role: "assistant",
+                    content:
+                        result?.message ||
+                        "Completed"
                 }
             ]);
 
-            setTerminalInput("");
+            setAiStatus("Done");
 
-            const result = await executeCommand(
-                sandboxId,
-                command
-            );
-
-            const commandResult =
-                result.results?.[0];
-
-            if (commandResult?.stdout) {
-                setTerminalOutput((current) => [
-                    ...current,
-                    {
-                        type: "output",
-                        text: commandResult.stdout
-                    }
-                ]);
-            }
-
-            if (commandResult?.stderr) {
-                setTerminalOutput((current) => [
-                    ...current,
-                    {
-                        type: "error",
-                        text: commandResult.stderr
-                    }
-                ]);
-            }
+            setTimeout(() => {
+                setAiStatus("");
+            }, 1200);
         } catch (err) {
+            if (planningTimer) {
+                clearTimeout(
+                    planningTimer
+                );
+            }
+
             console.error(
-                "TERMINAL COMMAND FAILED:",
+                "AI REQUEST FAILED:",
                 err
             );
 
-            setError(err.message);
+            setAiStatus("Failed");
 
-            setTerminalOutput((current) => [
+            setMessages((current) => [
                 ...current,
                 {
-                    type: "error",
-                    text: err.message
+                    role: "assistant",
+                    content:
+                        `Error: ${
+                            err?.message ||
+                            "Something went wrong."
+                        }`
                 }
             ]);
+
+            setError(
+                err?.message ||
+                "Something went wrong."
+            );
+
+            setTimeout(() => {
+                setAiStatus("");
+            }, 1500);
         } finally {
-            setIsExecuting(false);
+            setIsSending(false);
         }
+    };
+
+    /*
+     * Execute terminal command.
+     */
+    const handleTerminalCommand =
+        async () => {
+            const command =
+                terminalInput.trim();
+
+            if (
+                !command ||
+                !sandboxId ||
+                isExecuting
+            ) {
+                return;
+            }
+
+            try {
+                setIsExecuting(true);
+                setError("");
+
+                setTerminalOutput(
+                    (current) => [
+                        ...current,
+                        {
+                            type: "command",
+                            text: `$ ${command}`
+                        }
+                    ]
+                );
+
+                setTerminalInput("");
+
+                const result =
+                    await executeCommand(
+                        sandboxId,
+                        command
+                    );
+
+                const commandResult =
+                    result.results?.[0];
+
+                if (
+                    commandResult?.stdout
+                ) {
+                    setTerminalOutput(
+                        (current) => [
+                            ...current,
+                            {
+                                type: "output",
+                                text:
+                                    commandResult.stdout
+                            }
+                        ]
+                    );
+                }
+
+                if (
+                    commandResult?.stderr
+                ) {
+                    setTerminalOutput(
+                        (current) => [
+                            ...current,
+                            {
+                                type: "error",
+                                text:
+                                    commandResult.stderr
+                            }
+                        ]
+                    );
+                }
+            } catch (err) {
+                console.error(
+                    "TERMINAL COMMAND FAILED:",
+                    err
+                );
+
+                setError(
+                    err?.message ||
+                    "Terminal command failed."
+                );
+
+                setTerminalOutput(
+                    (current) => [
+                        ...current,
+                        {
+                            type: "error",
+                            text:
+                                err?.message ||
+                                "Command failed."
+                        }
+                    ]
+                );
+            } finally {
+                setIsExecuting(false);
+            }
+        };
+
+    /*
+     * New project.
+     */
+    const handleNewProject = () => {
+        const confirmed =
+            window.confirm(
+                "Start a new project?\n\n" +
+                "Your current project will remain in its existing session."
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
+        /*
+         * Generate a completely new session.
+         */
+        const newSessionId =
+            crypto.randomUUID();
+
+        localStorage.setItem(
+            "forgeai_session_id",
+            newSessionId
+        );
+
+        /*
+         * Reload so Workspace creates/loads
+         * the new sandbox.
+         */
+        window.location.reload();
     };
 
     /*
@@ -373,15 +689,17 @@ function Workspace() {
     const handleLogout = async () => {
         setShowUserMenu(false);
 
-        await logout();
+        try {
+            await logout();
+        } finally {
+            localStorage.removeItem(
+                "forgeai_session_id"
+            );
 
-        localStorage.removeItem(
-            "forgeai_session_id"
-        );
-
-        navigate("/login", {
-            replace: true
-        });
+            navigate("/login", {
+                replace: true
+            });
+        }
     };
 
     if (loading) {
@@ -403,10 +721,21 @@ function Workspace() {
                         F
                     </div>
 
-                    <span>ForgeAI</span>
+                    <span>
+                        ForgeAI
+                    </span>
                 </div>
 
                 <div className="workspace-actions">
+
+                    <button
+                        className="topbar-button"
+                        onClick={
+                            handleNewProject
+                        }
+                    >
+                        New Project
+                    </button>
 
                     <button
                         className="topbar-button"
@@ -418,6 +747,7 @@ function Workspace() {
                                 );
                             }
                         }}
+                        disabled={!previewUrl}
                     >
                         Preview
                     </button>
@@ -447,20 +777,25 @@ function Workspace() {
                             {user?.avatar ? (
                                 <img
                                     className="user-avatar-image"
-                                    src={user.avatar}
+                                    src={
+                                        user.avatar
+                                    }
                                     alt=""
                                 />
                             ) : (
                                 <div className="user-avatar">
                                     {user?.name
-                                        ?.charAt(0)
+                                        ?.charAt(
+                                            0
+                                        )
                                         ?.toUpperCase() ||
                                         "U"}
                                 </div>
                             )}
 
                             <span className="user-name">
-                                {user?.name || "User"}
+                                {user?.name ||
+                                    "User"}
                             </span>
 
                             <span className="user-chevron">
@@ -476,13 +811,17 @@ function Workspace() {
                                     {user?.avatar ? (
                                         <img
                                             className="user-avatar-image large"
-                                            src={user.avatar}
+                                            src={
+                                                user.avatar
+                                            }
                                             alt=""
                                         />
                                     ) : (
                                         <div className="user-avatar large">
                                             {user?.name
-                                                ?.charAt(0)
+                                                ?.charAt(
+                                                    0
+                                                )
                                                 ?.toUpperCase() ||
                                                 "U"}
                                         </div>
@@ -506,7 +845,9 @@ function Workspace() {
 
                                 <button
                                     className="user-dropdown-item logout-item"
-                                    onClick={handleLogout}
+                                    onClick={
+                                        handleLogout
+                                    }
                                 >
                                     Logout
                                 </button>
@@ -534,8 +875,12 @@ function Workspace() {
 
                     <FileExplorer
                         files={files}
-                        activeFile={activeFile}
-                        onSelect={setActiveFile}
+                        activeFile={
+                            activeFile
+                        }
+                        onSelect={
+                            setActiveFile
+                        }
                     />
 
                 </aside>
@@ -548,11 +893,15 @@ function Workspace() {
 
                         {activeFile ? (
                             <CodeEditor
-                                key={activeFile}
+                                key={
+                                    activeFile
+                                }
                                 fileName={getFileName(
                                     activeFile
                                 )}
-                                value={fileContent}
+                                value={
+                                    fileContent
+                                }
                                 onChange={
                                     handleFileChange
                                 }
@@ -571,12 +920,15 @@ function Workspace() {
                     <section className="chat-panel">
 
                         <div className="panel-header">
-                            <span>ForgeAI</span>
+                            <span>
+                                ForgeAI
+                            </span>
                         </div>
 
                         <div className="chat-messages">
 
-                            {messages.length === 0 ? (
+                            {messages.length ===
+                            0 ? (
                                 <div className="chat-placeholder">
 
                                     <h2>
@@ -597,7 +949,9 @@ function Workspace() {
                                         index
                                     ) => (
                                         <div
-                                            key={index}
+                                            key={
+                                                index
+                                            }
                                             className={`chat-message ${message.role}`}
                                         >
 
@@ -609,7 +963,9 @@ function Workspace() {
                                             </div>
 
                                             <div className="message-content">
-                                                {message.content}
+                                                {
+                                                    message.content
+                                                }
                                             </div>
 
                                         </div>
@@ -625,7 +981,8 @@ function Workspace() {
                                     </div>
 
                                     <div className="message-content">
-                                        Building your project...
+                                        {aiStatus ||
+                                            "Building your project..."}
                                     </div>
 
                                 </div>
@@ -633,16 +990,33 @@ function Workspace() {
 
                         </div>
 
+                        {/* AI STATUS */}
+                        {aiStatus && (
+                            <div className="ai-status">
+                                <span className="ai-status-dot" />
+
+                                <span>
+                                    {aiStatus}
+                                </span>
+                            </div>
+                        )}
+
                         <div className="chat-input">
 
                             <input
                                 value={prompt}
-                                onChange={(event) =>
+                                onChange={(
+                                    event
+                                ) =>
                                     setPrompt(
-                                        event.target.value
+                                        event
+                                            .target
+                                            .value
                                     )
                                 }
-                                onKeyDown={(event) => {
+                                onKeyDown={(
+                                    event
+                                ) => {
                                     if (
                                         event.key ===
                                             "Enter" &&
@@ -652,7 +1026,9 @@ function Workspace() {
                                         handleSendPrompt();
                                     }
                                 }}
-                                disabled={isSending}
+                                disabled={
+                                    isSending
+                                }
                                 placeholder={
                                     isSending
                                         ? "ForgeAI is building..."
@@ -684,7 +1060,9 @@ function Workspace() {
                 <aside className="workspace-preview">
 
                     <div className="panel-header">
-                        <span>Preview</span>
+                        <span>
+                            Preview
+                        </span>
                     </div>
 
                     <div className="preview-frame-container">
@@ -692,7 +1070,9 @@ function Workspace() {
                         {previewUrl ? (
                             <iframe
                                 className="preview-frame"
-                                src={previewUrl}
+                                src={
+                                    previewUrl
+                                }
                                 title="ForgeAI Live Preview"
                             />
                         ) : (
@@ -713,26 +1093,36 @@ function Workspace() {
             <section className="workspace-terminal">
 
                 <div className="panel-header">
-                    <span>Terminal</span>
+                    <span>
+                        Terminal
+                    </span>
                 </div>
 
                 <div className="terminal-content">
 
                     <div className="terminal-output">
 
-                        {terminalOutput.length === 0 && (
+                        {terminalOutput.length ===
+                            0 && (
                             <div className="terminal-empty">
                                 Terminal ready...
                             </div>
                         )}
 
                         {terminalOutput.map(
-                            (item, index) => (
+                            (
+                                item,
+                                index
+                            ) => (
                                 <div
-                                    key={index}
+                                    key={
+                                        index
+                                    }
                                     className={`terminal-line ${item.type}`}
                                 >
-                                    {item.text}
+                                    {
+                                        item.text
+                                    }
                                 </div>
                             )
                         )}
@@ -746,13 +1136,21 @@ function Workspace() {
                         </span>
 
                         <input
-                            value={terminalInput}
-                            onChange={(event) =>
+                            value={
+                                terminalInput
+                            }
+                            onChange={(
+                                event
+                            ) =>
                                 setTerminalInput(
-                                    event.target.value
+                                    event
+                                        .target
+                                        .value
                                 )
                             }
-                            onKeyDown={(event) => {
+                            onKeyDown={(
+                                event
+                            ) => {
                                 if (
                                     event.key ===
                                         "Enter" &&
@@ -762,7 +1160,9 @@ function Workspace() {
                                     handleTerminalCommand();
                                 }
                             }}
-                            disabled={isExecuting}
+                            disabled={
+                                isExecuting
+                            }
                             placeholder={
                                 isExecuting
                                     ? "Running..."

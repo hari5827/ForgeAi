@@ -10,6 +10,7 @@ function normalizeActions(actions) {
         if (item.action) {
             return item;
         }
+
         if (item.create_file) {
             return {
                 action: "create_file",
@@ -40,19 +41,55 @@ function normalizeActions(actions) {
             };
         }
 
-        throw new Error("Invalid action format from Gemini");
+        throw new Error(
+            "Invalid action format from Gemini"
+        );
     });
 }
 
-export async function generateActions(prompt) {
+export async function generateActions(
+    prompt,
+    projectContext = {}
+) {
+    const files = Array.isArray(projectContext.files)
+        ? projectContext.files
+        : [];
+
+    const fileTree =
+        files.length > 0
+            ? files.join("\n")
+            : "(No project files available)";
+
+    const importantFiles =
+        projectContext.importantFiles || {};
+
+    const importantFileContext =
+        Object.entries(importantFiles)
+            .map(
+                ([path, content]) =>
+                    `\n--- ${path} ---\n${content}`
+            )
+            .join("\n");
+
     const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-lite",
+
         contents: `
-You are an AI coding planner.
+You are an AI coding planner operating inside an existing software project.
 
-Convert the user's request into executable sandbox actions.
+Your job is to convert the user's request into executable sandbox actions.
 
-Allowed actions:
+You are NOT starting from an empty project unless the project context explicitly shows an empty project.
+
+PROJECT STRUCTURE:
+${fileTree}
+
+IMPORTANT EXISTING FILES:
+${importantFileContext || "(None provided)"}
+
+--------------------------------------------------
+ALLOWED ACTIONS
+--------------------------------------------------
 
 create_file:
 {
@@ -80,29 +117,79 @@ run_command:
   "command": "shell command"
 }
 
-IMPORTANT:
+--------------------------------------------------
+PROJECT-AWARE RULES
+--------------------------------------------------
+
+1. FIRST reason about the existing project structure.
+
+2. If the requested feature can be implemented by modifying an
+   existing file, prefer update_file instead of create_file.
+
+3. For React/Vite projects, prefer the existing React entry files
+   such as:
+   - src/App.jsx
+   - src/main.jsx
+   - src/App.js
+   - src/main.js
+
+4. Reuse existing CSS files when appropriate instead of creating
+   unrelated HTML pages.
+
+5. Do NOT create a separate .html page for a feature that belongs
+   inside the existing React application.
+
+6. If an existing component already handles the requested feature,
+   update that component instead of creating a duplicate.
+
+7. Only create a new file when:
+   - the feature genuinely needs a new module/component/file, OR
+   - no suitable existing file exists.
+
+8. Preserve the existing project's framework and structure.
+
+9. Do not replace the entire project with a different framework.
+
+10. Use the project context as the source of truth for file paths.
+
+11. Never invent existing files that are not present in the project
+    context.
+
+12. File paths must be relative.
+
+13. Do not use absolute paths.
+
+--------------------------------------------------
+OUTPUT RULES
+--------------------------------------------------
+
 - Return ONLY valid JSON.
 - Return an object with an "actions" array.
 - Every action MUST have an "action" field.
-- Never use nested formats like {"update_file": {...}}.
-- File paths must be relative.
+- Never use nested formats such as:
+  {"update_file": {...}}
 - Do not use markdown.
 - Do not add explanations.
 
 Example:
+
 {
   "actions": [
     {
-      "action": "create_file",
-      "path": "test.txt",
-      "content": "Hello"
+      "action": "update_file",
+      "path": "src/App.jsx",
+      "content": "..."
     }
   ]
 }
 
-User request:
+--------------------------------------------------
+USER REQUEST
+--------------------------------------------------
+
 ${prompt}
         `,
+
         config: {
             temperature: 0,
             responseMimeType: "application/json"
@@ -114,8 +201,10 @@ ${prompt}
     const parsed = JSON.parse(text);
 
     if (!Array.isArray(parsed.actions)) {
-        throw new Error("Gemini response does not contain actions array");
+        throw new Error(
+            "Gemini response does not contain actions array"
+        );
     }
 
-    return parsed.actions;
+    return normalizeActions(parsed.actions);
 }
